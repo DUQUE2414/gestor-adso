@@ -3,15 +3,29 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use App\Models\Aprendiz;
 
 class AprendizController extends Controller
 {
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
-        return view('aprendices.index');
+        // Capturamos el término de búsqueda si existe en la URL (?search=...)
+        $search = $request->get('search');
+
+        // Consultamos filtrando por nombre, documento o correo
+        $aprendices = Aprendiz::when($search, function ($query, $search) {
+                return $query->where('nombre', 'like', "%{$search}%")
+                             ->orWhere('documento', 'like', "%{$search}%")
+                             ->orWhere('correo', 'like', "%{$search}%");
+            })
+            ->latest()
+            ->paginate(10)
+            ->withQueryString(); // Mantiene el término de búsqueda durante la paginación
+
+        return view('aprendices.index', compact('aprendices', 'search'));
     }
 
     /**
@@ -27,15 +41,18 @@ class AprendizController extends Controller
      */
     public function store(Request $request)
     {
-        // Validación mínima (simulación de guardado)
+        // Validación de datos
         $data = $request->validate([
-           'nombre' => ['required', 'string', 'max:120'],
-           'documento' => ['required', 'string', 'max:40'],
-           'correo' => ['required', 'email', 'max:120'],
+           'nombre'    => ['required', 'string', 'max:120'],
+           'documento' => ['required', 'string', 'max:40', 'unique:aprendizs,documento'],
+           'correo'    => ['required', 'email', 'max:120', 'unique:aprendizs,correo'],
+           'ficha_id'  => ['nullable', 'integer']
         ]);
 
+        Aprendiz::create($data);
+
         return redirect()->route('aprendices.index')
-            ->with('ok', 'Aprendiz recibido (simulado)');
+            ->with('ok', 'Aprendiz guardado con éxito');
     }
 
     /**
